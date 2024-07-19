@@ -28,22 +28,19 @@ call print_bios
 ; Load the next sector
 call load_bios
 
-; We should now be able to read the loaded string
-mov bx, loaded_msg
-call print_bios
-
-; And now we're going to threaten the user
-mov bx, threatening_msg
-call print_bios
+; And elevate to 32-bit mode
+call elevate_bios
 
 ; Infinite Loop
 bootsector_hold:
 jmp $               ; Infinite loop
 
 ; INCLUDES
-%include "print.asm"
-%include "print_hex.asm"
-%include "load.asm"
+%include "real_mode/print.asm"
+%include "real_mode/print_hex.asm"
+%include "real_mode/load.asm"
+%include "real_mode/gdt.asm"
+%include "real_mode/elevate.asm"
 
 ; DATA STORAGE AREA
 
@@ -59,10 +56,36 @@ times 510 - ($ - $$) db 0x00
 ; Magic number
 dw 0xAA55
 
-bootsector_extended:
 
-loaded_msg:                     db "Now reading from the next sector!", 0x0A, 0x0D, 0
-threatening_msg:                db "And I'm coming for you!", 0x0A, 0x0D, 0
+; START OF THE SECOND SECTOR - ONLY 32-BIT CODE FROM HERE
+
+bootsector_extended:
+begin_protected:
+
+; Clear the screen
+call clear_screen
+
+; Print a message
+mov esi, threatening_msg
+call print
+
+; Infinite loop
+jmp $
+
+; INCLUDES
+%include "protected_mode/print.asm"
+%include "protected_mode/clear.asm"
+
+; DATA STORAGE AREA
+
+; String Message
+threatening_msg:                db "I'm coming for you!", 0
+protected_msg:                  db "Now in 32-bit protected mode!", 0
+
+; Constants
+vga_start:                  equ 0x000B8000
+vga_extent:                 equ 80 * 25 * 2             ; VGA Memory is 80 chars wide by 25 chars tall (one char is 2 bytes)
+style_wb:                   equ 0x0F
 
 ; Fill with zeros to the end of the sector
 times 512 - ($ - bootsector_extended) db 0x00
